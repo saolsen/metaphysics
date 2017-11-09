@@ -18,6 +18,7 @@ import { info, error } from "./lib/loggers"
 import graphqlErrorHandler from "./lib/graphql-error-handler"
 import moment from "moment"
 import "moment-timezone"
+import { fetchLoggerRequestDone, fetchLoggerSetup } from "lib/apis/fetch/logger"
 global.Promise = Bluebird
 
 const { PORT, NODE_ENV, GRAVITY_API_URL, GRAVITY_ID, GRAVITY_SECRET, QUERY_DEPTH_LIMIT } = process.env
@@ -26,9 +27,12 @@ const app = express()
 const port = PORT || 3000
 const queryLimit = parseInt(QUERY_DEPTH_LIMIT, 10) || 10 // Default to ten.
 
-if (NODE_ENV === "production") {
+const isProduction = NODE_ENV === "production"
+if (isProduction) {
   app.set("forceSSLOptions", { trustXFPHeader: true }).use(forceSSL)
   app.set("trust proxy", 1)
+} else {
+  fetchLoggerSetup()
 }
 
 xapp.on("error", err => {
@@ -52,7 +56,7 @@ app.get("/favicon.ico", (_req, res) => {
     .end()
 })
 
-app.all("/graphql", (req, res) => res.redirect("/"))
+app.all("/graphql", (_req, res) => res.redirect("/"))
 
 app.use(bodyParser.json())
 app.use(
@@ -77,6 +81,7 @@ app.use(
     }
 
     return {
+      extensions: isProduction ? undefined : fetchLoggerRequestDone,
       schema,
       graphiql: true,
       rootValue: {
